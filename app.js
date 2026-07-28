@@ -2,7 +2,7 @@
   "use strict";
 
   const CONFIG = window.FLIGHTWALL_CONFIG || {};
-  const STORAGE_KEY = "flightwall-github-pages-v3.0.0";
+  const STORAGE_KEY = "flightwall-github-pages-v3.0.3";
 
   const demoFlights = [
     { id:"a11aa1", icao24:"a11aa1", callsign:"AAL1724", flightNumber:"AA 1724", airline:"AMERICAN", origin:"PHL", destination:"MCO", aircraft:"BOEING 737-800", country:"United States", latitude:39.91, longitude:-75.08, altitudeFt:12450, speedMph:338, heading:214, distanceMi:6.2, bearing:"SW", verticalRateFpm:1200, status:"CLIMBING", squawk:"1432", onGround:false },
@@ -31,7 +31,7 @@
     "selectedFlight","selectedIcao","selectedCountry","selectedSquawk","selectedPosition",
     "refreshButton","searchInput","favoritesOnlyButton","flightList","weatherRefreshButton","weatherTemperature","weatherCondition","weatherWind","weatherVisibility","weatherSunrise","weatherSunset","layoutSelect",
     "themeSelect","unitsSelect","rotationSelect","brightnessRange","brightnessOutput",
-    "dotRange","dotOutput","autoBrightnessInput","latitudeInput","longitudeInput","radiusInput","maximumInput",
+    "dotRange","dotOutput","autoBrightnessInput","zipCodeInput","zipCodeButton","zipCodeStatus","latitudeInput","longitudeInput","radiusInput","maximumInput",
     "commercialOnlyInput","autoLocateInput","showWeatherInput","radarContactsRange","radarContactsOutput","trailLengthRange","trailLengthOutput","headingVectorsInput","radarLabelsInput","locationButton","applyTrackingButton","fidsPageSecondsSelect","fidsSortSelect","fidsAirlineFilterInput","fidsShowAircraftInput","connectionDescription"
   ].map(id => [id, document.getElementById(id)]));
 
@@ -74,6 +74,7 @@
   const INTERPOLATION_WINDOW_MS = 12000;
 
   const defaults = {
+    zipCode: "",
     latitude: Number(CONFIG.DEFAULT_LATITUDE ?? 39.9348),
     longitude: Number(CONFIG.DEFAULT_LONGITUDE ?? -75.0307),
     radius: Number(CONFIG.DEFAULT_RADIUS_MILES ?? 35),
@@ -114,6 +115,7 @@
   }
 
   function populateControls() {
+    elements.zipCodeInput.value = settings.zipCode || "";
     elements.latitudeInput.value = settings.latitude;
     elements.longitudeInput.value = settings.longitude;
     elements.radiusInput.value = settings.radius;
@@ -1194,6 +1196,7 @@
   }
 
   function readTrackingSettings() {
+    settings.zipCode = String(elements.zipCodeInput.value || "").trim();
     settings.latitude = finite(elements.latitudeInput.value, defaults.latitude);
     settings.longitude = finite(elements.longitudeInput.value, defaults.longitude);
     settings.radius = Math.min(250, Math.max(1, finite(elements.radiusInput.value, defaults.radius)));
@@ -1206,6 +1209,55 @@
     settings.headingVectors = elements.headingVectorsInput.checked;
     settings.radarLabels = elements.radarLabelsInput.checked;
     saveSettings();
+  }
+
+  function setZipCodeStatus(message, state = "") {
+    elements.zipCodeStatus.textContent = message;
+    elements.zipCodeStatus.classList.toggle("success", state === "success");
+    elements.zipCodeStatus.classList.toggle("error", state === "error");
+  }
+
+  async function applyZipCode({ refresh = true } = {}) {
+    const rawZip = String(elements.zipCodeInput.value || "").trim();
+    if (!/^\d{5}(?:-\d{4})?$/.test(rawZip)) {
+      setZipCodeStatus("Enter a valid 5-digit U.S. ZIP code.", "error");
+      elements.zipCodeInput.focus();
+      return false;
+    }
+    const zip = rawZip.slice(0, 5);
+    const originalText = elements.zipCodeButton.textContent;
+    elements.zipCodeButton.disabled = true;
+    elements.zipCodeButton.textContent = "Locating…";
+    setZipCodeStatus(`Looking up ZIP code ${zip}…`);
+    try {
+      const response = await fetch(`https://api.zippopotam.us/us/${encodeURIComponent(zip)}`, { headers:{"Accept":"application/json"} });
+      if (!response.ok) throw new Error(response.status === 404 ? "ZIP code not found." : "ZIP lookup unavailable.");
+      const payload = await response.json();
+      const place = payload?.places?.[0];
+      const latitude = Number(place?.latitude);
+      const longitude = Number(place?.longitude);
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) throw new Error("ZIP lookup returned an invalid location.");
+      elements.zipCodeInput.value = zip;
+      elements.latitudeInput.value = latitude.toFixed(5);
+      elements.longitudeInput.value = longitude.toFixed(5);
+      settings.zipCode = zip;
+      settings.latitude = latitude;
+      settings.longitude = longitude;
+      saveSettings();
+      const placeName = [place["place name"], place["state abbreviation"]].filter(Boolean).join(", ");
+      setZipCodeStatus(`${zip}${placeName ? ` · ${placeName}` : ""} selected.`, "success");
+      if (refresh) {
+        readTrackingSettings();
+        await Promise.allSettled([fetchFlights({ bypassCache:true }), fetchWeather()]);
+      }
+      return true;
+    } catch (error) {
+      setZipCodeStatus(error?.message || "Unable to look up that ZIP code.", "error");
+      return false;
+    } finally {
+      elements.zipCodeButton.disabled = false;
+      elements.zipCodeButton.textContent = originalText;
+    }
   }
 
   function applyDisplaySettings() {
@@ -2437,10 +2489,25 @@
     saveSettings();
   });
 
-  elements.applyTrackingButton.addEventListener("click", () => {
+  elements.applyTrackingButton.addEventListener("click", async () => {
+    const zip = String(elements.zipCodeInput.value || "").trim();
+    if (zip) {
+      const applied = await applyZipCode({ refresh:false });
+      if (!applied) return;
+    }
     readTrackingSettings();
     fetchFlights({ bypassCache:true });
     fetchWeather();
+  });
+
+  elements.zipCodeButton.addEventListener("click", () => { applyZipCode(); });
+  elements.zipCodeInput.addEventListener("keydown", event => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    applyZipCode();
+  });
+  elements.zipCodeInput.addEventListener("input", () => {
+    setZipCodeStatus("Enter a U.S. ZIP code to set latitude and longitude.");
   });
 
   elements.locationButton.addEventListener("click", () => {
@@ -2449,6 +2516,8 @@
       return;
     }
     navigator.geolocation.getCurrentPosition(position => {
+      elements.zipCodeInput.value = "";
+      setZipCodeStatus("Using this device location.", "success");
       elements.latitudeInput.value = position.coords.latitude.toFixed(5);
       elements.longitudeInput.value = position.coords.longitude.toFixed(5);
       readTrackingSettings();

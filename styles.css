@@ -542,3 +542,10 @@ code {
 #fidsAirlineFilterInput{text-transform:uppercase;}
 
 .logo-library-link{color:#f2bd3f;text-decoration:none;font-size:11px;font-weight:900;letter-spacing:.12em;padding:7px 9px;border:1px solid rgba(242,189,63,.35);border-radius:6px}.logo-library-link:hover{border-color:#f2bd3f}
+
+.zip-code-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; }
+.zip-code-row .button { white-space:nowrap; }
+.field-note { display:block; min-height:1.2em; margin-top:6px; color:var(--muted); font-size:.78rem; line-height:1.35; }
+.field-note.success { color:#75e6a4; }
+.field-note.error { color:#ff8e8e; }
+@media (max-width:520px) { .zip-code-row { grid-template-columns:1fr; } }

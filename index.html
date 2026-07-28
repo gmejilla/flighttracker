@@ -17,7 +17,7 @@
         <div class="brand-badge" aria-hidden="true">FT</div>
         <div>
           <h1>FLIGHT TRACKER</h1>
-          <p>Web · v3.0.0</p>
+          <p>Web · v3.0.3</p>
         </div>
       </div>
 
@@ -137,6 +137,16 @@
 
         <section class="panel">
           <h2>Tracking Settings</h2>
+
+          <label class="field">
+            <span>ZIP code</span>
+            <div class="zip-code-row">
+              <input id="zipCodeInput" type="text" inputmode="numeric" autocomplete="postal-code"
+                     maxlength="10" placeholder="e.g. 08003" aria-describedby="zipCodeStatus">
+              <button class="button" id="zipCodeButton" type="button">Use ZIP code</button>
+            </div>
+            <small class="field-note" id="zipCodeStatus">Enter a U.S. ZIP code to set latitude and longitude.</small>
+          </label>
 
           <div class="two-column">
             <label class="field">

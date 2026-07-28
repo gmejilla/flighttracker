@@ -1,3 +1,11 @@
+# v3.0.3 Release Notes
+
+- Added U.S. ZIP-code tracking under Tracking Settings.
+- ZIP lookup fills latitude and longitude through the Zippopotam.us API.
+- ZIP codes can be applied with Enter, **Use ZIP code**, or **Apply settings**.
+- Device geolocation clears the ZIP field so exact coordinates take precedence.
+- Updated the web label, storage key, and service-worker cache to v3.0.3.
+
 # v3.0.0 Release Notes
 
 - Fixed `CDN_ROOT is not defined`, which caused the DISPLAY DATA ERROR.
