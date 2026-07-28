@@ -1,0 +1,22 @@
+{
+  "name": "FlightWall LED Tracker",
+  "short_name": "FlightWall",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#030607",
+  "theme_color": "#030607",
+  "description": "An installable LED flight tracker with live aircraft, airline marks, departures, arrivals, weather, and radar.",
+  "icons": [
+    {
+      "src": "./assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "./assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#030607">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="apple-touch-icon" href="./assets/icon-192.png">
+  <meta name="description" content="A browser-based LED flight tracker built for GitHub Pages.">
+  <title>FLIGHT TRACKER</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-badge" aria-hidden="true">FT</div>
+        <div>
+          <h1>FLIGHT TRACKER</h1>
+          <p>Web · v3.0.0</p>
+        </div>
+      </div>
+
+      <div class="status-row">
+        <span class="status-pill" id="providerPill">DEMO</span>
+        <span class="status-pill neutral"><b id="aircraftCount">0</b>&nbsp; AIRCRAFT</span>
+        <span class="status-pill neutral">UPDATED&nbsp; <b id="updatedAt">--:--:--</b></span>
+        <span class="status-pill neutral">LOCAL&nbsp; <b id="localClock">--:--</b></span>
+      </div>
+      <a class="logo-library-link" href="logo-gallery.html" title="View airline SVG library">LOGOS</a>
+</header>
+
+    <main class="main-grid">
+      <section class="display-column">
+        <div class="display-frame">
+          <div class="display-bezel" id="displayBezel">
+            <canvas id="ledCanvas" aria-label="LED flight information display"></canvas>
+            <div class="display-message hidden" id="displayMessage"></div>
+          </div>
+        </div>
+
+        <div class="display-toolbar">
+          <button class="button" id="previousButton" type="button">Previous</button>
+          <button class="button primary" id="pauseButton" type="button">Pause rotation</button>
+          <button class="button" id="nextButton" type="button">Next</button>
+          <button class="button" id="fullscreenButton" type="button">Fullscreen</button>
+          <button class="button" id="wakeLockButton" type="button">Keep screen awake</button>
+        </div>
+
+        <section class="telemetry-card" id="telemetryCard">
+          <div>
+            <span class="eyebrow">Selected aircraft</span>
+            <strong id="selectedFlight">---</strong>
+          </div>
+          <dl>
+            <div><dt>ICAO24</dt><dd id="selectedIcao">---</dd></div>
+            <div><dt>Country</dt><dd id="selectedCountry">---</dd></div>
+            <div><dt>Squawk</dt><dd id="selectedSquawk">---</dd></div>
+            <div><dt>Position</dt><dd id="selectedPosition">---</dd></div>
+          </dl>
+        </section>
+      </section>
+
+      <aside class="sidebar">
+        <section class="panel">
+          <div class="panel-heading">
+            <h2>Nearby Aircraft</h2>
+            <button class="icon-button" id="refreshButton" type="button" title="Refresh flight data">↻</button>
+          </div>
+
+          <div class="filter-row">
+            <input id="searchInput" type="search" placeholder="Search callsign or airline">
+            <button class="button compact" id="favoritesOnlyButton" type="button">All</button>
+          </div>
+
+          <div class="flight-list" id="flightList"></div>
+        </section>
+
+        <section class="panel">
+          <h2>Display Settings</h2>
+
+          <label class="field">
+            <span>Layout</span>
+            <select id="layoutSelect">
+              <option value="classic">Classic Flight Board</option>
+              <option value="compact">Compact Tracking</option>
+              <option value="radar">Radar Summary</option>
+              <option value="departure">Departures Board</option>
+              <option value="arrival">Arrivals Board</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Theme</span>
+            <select id="themeSelect">
+              <option value="cyan">Cyan Aviation</option>
+              <option value="amber">Amber Terminal</option>
+              <option value="mono">Monochrome</option>
+            </select>
+          </label>
+
+          <div class="two-column">
+            <label class="field">
+              <span>Units</span>
+              <select id="unitsSelect">
+                <option value="imperial">Imperial</option>
+                <option value="metric">Metric</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span>Rotation</span>
+              <select id="rotationSelect">
+                <option value="4">4 seconds</option>
+                <option value="6">6 seconds</option>
+                <option value="10">10 seconds</option>
+                <option value="15">15 seconds</option>
+              </select>
+            </label>
+          </div>
+
+          <label class="field">
+            <span>Brightness <output id="brightnessOutput">88%</output></span>
+            <input id="brightnessRange" type="range" min="20" max="100" value="88">
+          </label>
+
+          <label class="checkbox-row">
+            <input id="autoBrightnessInput" type="checkbox">
+            <span>Automatically reduce brightness at night</span>
+          </label>
+
+          <label class="field">
+            <span>LED size <output id="dotOutput">4px</output></span>
+            <input id="dotRange" type="range" min="2" max="8" value="4">
+          </label>
+        </section>
+
+        <section class="panel">
+          <h2>Tracking Settings</h2>
+
+          <div class="two-column">
+            <label class="field">
+              <span>Latitude</span>
+              <input id="latitudeInput" type="number" step="0.0001">
+            </label>
+
+            <label class="field">
+              <span>Longitude</span>
+              <input id="longitudeInput" type="number" step="0.0001">
+            </label>
+          </div>
+
+          <div class="two-column">
+            <label class="field">
+              <span>Radius (mi)</span>
+              <input id="radiusInput" type="number" min="1" max="250">
+            </label>
+
+            <label class="field">
+              <span>Maximum</span>
+              <input id="maximumInput" type="number" min="1" max="50">
+            </label>
+          </div>
+
+          <label class="checkbox-row">
+            <input id="commercialOnlyInput" type="checkbox">
+            <span>Hide aircraft without a recognizable callsign</span>
+          </label>
+
+          <div class="button-grid">
+            <button class="button" id="locationButton" type="button">Use my location</button>
+            <button class="button primary" id="applyTrackingButton" type="button">Apply settings</button>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-heading">
+            <h2>Local Weather</h2>
+            <button class="icon-button" id="weatherRefreshButton" type="button" title="Refresh weather">↻</button>
+          </div>
+          <div class="weather-card">
+            <div>
+              <span class="weather-temp" id="weatherTemperature">--°</span>
+              <span class="weather-condition" id="weatherCondition">Weather unavailable</span>
+            </div>
+            <dl>
+              <div><dt>Wind</dt><dd id="weatherWind">---</dd></div>
+              <div><dt>Visibility</dt><dd id="weatherVisibility">---</dd></div>
+              <div><dt>Sunrise</dt><dd id="weatherSunrise">---</dd></div>
+              <div><dt>Sunset</dt><dd id="weatherSunset">---</dd></div>
+            </dl>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Startup Behavior</h2>
+          <label class="checkbox-row">
+            <input id="autoLocateInput" type="checkbox">
+            <span>Use this device location when the app opens</span>
+          </label>
+          <label class="checkbox-row">
+            <input id="showWeatherInput" type="checkbox">
+            <span>Show weather in Classic and Compact displays</span>
+          </label>
+        </section>
+
+        <section class="panel">
+          <h2>Radar Controls</h2>
+          <label class="field">
+            <span>Radar contacts <output id="radarContactsOutput">12</output></span>
+            <input id="radarContactsRange" type="range" min="4" max="30" value="12">
+          </label>
+          <label class="field">
+            <span>Trail length <output id="trailLengthOutput">5</output></span>
+            <input id="trailLengthRange" type="range" min="0" max="12" value="5">
+          </label>
+          <label class="checkbox-row">
+            <input id="headingVectorsInput" type="checkbox" checked>
+            <span>Show aircraft heading vectors</span>
+          </label>
+          <label class="checkbox-row">
+            <input id="radarLabelsInput" type="checkbox" checked>
+            <span>Show flight labels</span>
+          </label>
+        </section>
+
+
+        <section class="panel">
+          <h2>FIDS Board</h2>
+          <div class="two-column">
+            <label class="field">
+              <span>Page duration</span>
+              <select id="fidsPageSecondsSelect">
+                <option value="6">6 seconds</option>
+                <option value="10">10 seconds</option>
+                <option value="15">15 seconds</option>
+                <option value="20">20 seconds</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Sort rows</span>
+              <select id="fidsSortSelect">
+                <option value="time">Flight time</option>
+                <option value="airline">Airline</option>
+                <option value="gate">Gate</option>
+                <option value="status">Status</option>
+              </select>
+            </label>
+          </div>
+          <label class="field">
+            <span>Airline filter</span>
+            <input id="fidsAirlineFilterInput" type="text" placeholder="All airlines">
+          </label>
+          <label class="checkbox-row">
+            <input id="fidsShowAircraftInput" type="checkbox">
+            <span>Show aircraft type</span>
+          </label>
+        </section>
+
+        <section class="panel small-copy">
+          <h2>Data Connection</h2>
+          <p id="connectionDescription">Demo data is active. Configure <code>API_BASE_URL</code> in <code>config.js</code> to use the included Worker.</p>
+        </section>
+      </aside>
+    </main>
+  </div>
+
+  <script src="./config.js"></script>
+  <script src="./led-font.js"></script>
+  <script src="./airline-logo-data.js"></script>
+  <script src="./airline-logos.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>

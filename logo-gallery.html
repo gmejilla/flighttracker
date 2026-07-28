@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>FlightWall SVG Logo Library</title>
+  <link rel="stylesheet" href="logo-gallery.css">
+</head>
+<body>
+  <header>
+    <div>
+      <p class="eyebrow">FLIGHTWALL v3.0.0</p>
+      <h1>Airline SVG Library</h1>
+      <p id="summary">Loading logos…</p>
+    </div>
+    <a href="index.html">Return to FlightWall</a>
+  </header>
+  <main>
+    <label class="search">
+      <span>Filter airlines</span>
+      <input id="filter" type="search" placeholder="Airline, IATA, or ICAO code">
+    </label>
+    <section id="grid" class="grid" aria-live="polite"></section>
+  </main>
+  <footer>
+    Vector assets are loaded from the pinned Soaring Symbols package for identification and reference.
+    Airline marks remain trademarks of their respective owners.
+  </footer>
+  <script src="airline-logo-data.js"></script>
+  <script src="airline-logos.js"></script>
+  <script src="logo-gallery.js"></script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "flightwall-api",
+  "main": "worker.js",
+  "compatibility_date": "2026-07-28",
+  "vars": {
+    "ALLOWED_ORIGIN": "https://YOUR-USERNAME.github.io",
+    "CACHE_SECONDS": "15"
+  }
+}
