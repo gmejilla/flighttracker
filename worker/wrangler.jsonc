@@ -3,7 +3,5 @@
   "name": "flightwall-api",
   "main": "src/index.js",
   "compatibility_date": "2026-07-01",
-  "observability": {
-    "enabled": true
-  }
+  "observability": { "enabled": true }
 }

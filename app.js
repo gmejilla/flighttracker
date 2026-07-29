@@ -164,8 +164,8 @@
     if (provider === "LIVE") {
       elements.connectionDescription.textContent =
         lastLiveSource === "ADSB.LOL"
-          ? "Live nearby aircraft are being returned directly by ADSB.lol."
-          : "Live nearby aircraft are being returned by the configured API Worker.";
+          ? "Live nearby aircraft are being returned through the FlightWall API Worker."
+          : "Live nearby aircraft are being returned through the FlightWall API Worker.";
     } else if (mode === "DEMO") {
       elements.connectionDescription.textContent = "Demo mode is selected in config.js.";
     } else if (!workerConfigured) {

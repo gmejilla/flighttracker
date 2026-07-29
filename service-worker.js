@@ -1,4 +1,4 @@
-const CACHE_NAME = "flightwall-v3.0.5";
+const CACHE_NAME = "flightwall-v3.1.0";
 const APP_SHELL = [
   "./",
   "./index.html",

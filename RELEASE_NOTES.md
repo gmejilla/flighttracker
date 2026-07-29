@@ -1,3 +1,12 @@
+# FlightWall v3.1.0 — Production API Architecture
+
+- Routes all browser data traffic through the Cloudflare Worker.
+- Adds `/flights` with ADSB.fi → Airplanes.live → ADSB.lol failover.
+- Adds AirLabs → ADSBDB route enrichment with provider diagnostics.
+- Adds cached `/weather` proxy and compact `/airport` endpoint.
+- Adds edge caching, timeout handling, CORS, structured provider metadata, and per-IP rate limiting.
+- Updates the frontend configuration and service-worker cache version.
+
 # v3.0.5 Release Notes
 
 - Added geometric validation for callsign-based origin and destination routes.
