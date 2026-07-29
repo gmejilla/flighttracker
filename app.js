@@ -2,7 +2,7 @@
   "use strict";
 
   const CONFIG = window.FLIGHTWALL_CONFIG || {};
-  const STORAGE_KEY = "flightwall-github-pages-v3.2.0";
+  const STORAGE_KEY = "flightwall-github-pages-v3.3.0";
 
   const demoFlights = [
     { id:"a11aa1", icao24:"a11aa1", callsign:"AAL1724", flightNumber:"AA 1724", airline:"AMERICAN", origin:"PHL", destination:"MCO", aircraft:"BOEING 737-800", country:"United States", latitude:39.91, longitude:-75.08, altitudeFt:12450, speedMph:338, heading:214, distanceMi:6.2, bearing:"SW", verticalRateFpm:1200, status:"CLIMBING", squawk:"1432", onGround:false },
@@ -222,8 +222,10 @@
 
     const request = (async () => {
       const url = new URL(endpoint);
+      url.searchParams.set("airport", airportCode);
       url.searchParams.set("latitude", String(coordinates[0]));
       url.searchParams.set("longitude", String(coordinates[1]));
+      url.searchParams.set("units", settings.units === "metric" ? "metric" : "imperial");
       url.searchParams.set("current", "temperature_2m,dew_point_2m,weather_code,wind_speed_10m,wind_direction_10m,visibility,cloud_cover");
       url.searchParams.set("daily", "sunrise,sunset");
       url.searchParams.set("temperature_unit", settings.units === "metric" ? "celsius" : "fahrenheit");
@@ -239,16 +241,21 @@
         temperature: Number(payload.current?.temperature_2m),
         dewPoint: Number(payload.current?.dew_point_2m),
         temperatureUnit: payload.current_units?.temperature_2m || (settings.units === "metric" ? "°C" : "°F"),
-        condition: weatherCodeLabel(payload.current?.weather_code),
+        condition: payload.aviation?.condition || weatherCodeLabel(payload.current?.weather_code),
         wind: Number(payload.current?.wind_speed_10m),
         windDirection: Number(payload.current?.wind_direction_10m),
         windUnit: payload.current_units?.wind_speed_10m || (settings.units === "metric" ? "km/h" : "mph"),
         visibilityMeters: Number(payload.current?.visibility),
         cloudCover: Number(payload.current?.cloud_cover),
         sunrise: payload.daily?.sunrise?.[0] || "",
-        sunset: payload.daily?.sunset?.[0] || ""
+        sunset: payload.daily?.sunset?.[0] || "",
+        category: payload.aviation?.flight_category || null,
+        ceilingFt: Number(payload.aviation?.ceiling_ft),
+        altimeterHpa: Number(payload.aviation?.altimeter_hpa),
+        rawMetar: payload.aviation?.raw_metar || "",
+        station: payload.station || airportCode
       };
-      data.category = aviationCategory(data.visibilityMeters, data.cloudCover);
+      data.category = data.category || aviationCategory(data.visibilityMeters, data.cloudCover);
       airportWeather.set(airportCode, { data, fetchedAt: Date.now() });
       return data;
     })().catch(() => null).finally(() => airportWeatherRequests.delete(airportCode));
@@ -307,6 +314,7 @@
     const url = new URL(endpoint);
     url.searchParams.set("latitude", String(settings.latitude));
     url.searchParams.set("longitude", String(settings.longitude));
+    url.searchParams.set("units", settings.units === "metric" ? "metric" : "imperial");
     url.searchParams.set("current", "temperature_2m,weather_code,wind_speed_10m,visibility");
     url.searchParams.set("daily", "sunrise,sunset");
     url.searchParams.set("temperature_unit", settings.units === "metric" ? "celsius" : "fahrenheit");
@@ -322,7 +330,7 @@
       weather = {
         temperature: Number(payload.current?.temperature_2m),
         temperatureUnit: payload.current_units?.temperature_2m || (settings.units === "metric" ? "°C" : "°F"),
-        condition: weatherCodeLabel(payload.current?.weather_code),
+        condition: payload.aviation?.condition || weatherCodeLabel(payload.current?.weather_code),
         wind: Number(payload.current?.wind_speed_10m),
         windUnit: payload.current_units?.wind_speed_10m || (settings.units === "metric" ? "km/h" : "mph"),
         visibilityMeters: Number(payload.current?.visibility),

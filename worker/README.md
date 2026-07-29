@@ -1,9 +1,22 @@
-# FlightWall API Worker v3.1.0
+# FlightWall Worker v3.3.0
 
-Cloudflare Worker used by the FlightWall GitHub Pages frontend.
+Cloudflare Worker backend for FlightWall.
 
-Endpoints: `/health`, `/flights`, `/route?flight=UAL678`, `/v0/callsign/UAL678`, `/weather`, and `/airport`.
+## Data providers
 
-The only required secret is `AIRLABS_API_KEY`. Never commit its value.
+- Live aircraft: ADSB.fi → Airplanes.live → ADSB.lol
+- Routes: AirLabs → ADSBDB
+- Airport metadata and runways: bundled OurAirports data
+- Aviation weather: AviationWeather.gov METAR/TAF
 
-Cloudflare Git build settings: root directory `worker`; deploy command `npx wrangler deploy`.
+## Endpoints
+
+- `/health`
+- `/flights?lat=39.9&lon=-75.0&radius=35&max=16`
+- `/route?flight=UAL678`
+- `/v0/callsign/UAL678`
+- `/airport?code=PHL`
+- `/weather?airport=PHL&units=imperial`
+- `/weather?lat=39.9&lon=-75.0&units=imperial`
+
+Keep the Cloudflare secret named `AIRLABS_API_KEY`.

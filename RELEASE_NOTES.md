@@ -1,3 +1,12 @@
+## v3.3.0 — Aviation Airport Data Update
+
+- Replaced generic Open-Meteo airport weather with AviationWeather.gov METAR and TAF data.
+- Added VFR/MVFR/IFR/LIFR flight category, ceiling, visibility, wind, dew point, altimeter and raw METAR support.
+- Replaced the three-airport compact database with a bundled OurAirports dataset covering scheduled-service, medium and large airports worldwide.
+- Added runway, elevation, city, country and coordinate metadata to `/airport`.
+- Weather requests remain proxied and cached through the Cloudflare Worker.
+- Airport Operations Mode remains excluded.
+
 # FlightWall v3.1.0 — Production API Architecture
 
 - Routes all browser data traffic through the Cloudflare Worker.

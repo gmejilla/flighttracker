@@ -550,7 +550,7 @@ code {
 .field-note.error { color:#ff8e8e; }
 @media (max-width:520px) { .zip-code-row { grid-template-columns:1fr; } }
 
-/* Flight details dashboard — v3.2.0 */
+/* Flight details dashboard — v3.3.0 */
 .flight-dashboard { display:grid; gap:12px; }
 .dashboard-hero, .detail-panel {
   border:1px solid var(--line); border-radius:var(--radius);
