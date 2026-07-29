@@ -6,6 +6,7 @@ const ALLOWED_ORIGINS = new Set([
 
 const SUCCESS_TTL_SECONDS = 900;
 const FAILURE_TTL_SECONDS = 60;
+const UPSTREAM_TIMEOUT_MS = 8000;
 
 function corsHeaders(request) {
   const origin = request.headers.get("Origin");
@@ -25,14 +26,11 @@ function corsHeaders(request) {
 function jsonResponse(request, body, status = 200, cacheSeconds = 0) {
   const headers = {
     "Content-Type": "application/json; charset=utf-8",
-    ...corsHeaders(request)
+    ...corsHeaders(request),
+    "Cache-Control": cacheSeconds > 0
+      ? `public, max-age=${cacheSeconds}`
+      : "no-store"
   };
-
-  if (cacheSeconds > 0) {
-    headers["Cache-Control"] = `public, max-age=${cacheSeconds}`;
-  } else {
-    headers["Cache-Control"] = "no-store";
-  }
 
   return new Response(JSON.stringify(body), { status, headers });
 }
@@ -57,6 +55,22 @@ function firstNonEmpty(...values) {
   return null;
 }
 
+function withLegacyRouteShape(result) {
+  if (!result?.success) return result;
+
+  return {
+    ...result,
+    route: {
+      origin: result.origin,
+      destination: result.destination,
+      airline: result.airline ? { name: result.airline } : null,
+      airline_name: result.airline,
+      callsign_icao: result.callsign,
+      callsign_iata: null
+    }
+  };
+}
+
 function parseAirLabs(payload, requestedFlight) {
   const rows = Array.isArray(payload?.response)
     ? payload.response
@@ -71,75 +85,97 @@ function parseAirLabs(payload, requestedFlight) {
     normalizeFlight(row?.flight_iata) === requestedFlight
   );
 
-  const f = exact || rows[0];
+  const flight = exact || rows[0];
 
-  const originIata = cleanCode(f?.dep_iata);
-  const originIcao = cleanCode(f?.dep_icao);
-  const destinationIata = cleanCode(f?.arr_iata);
-  const destinationIcao = cleanCode(f?.arr_icao);
+  const originIata = cleanCode(flight?.dep_iata);
+  const originIcao = cleanCode(flight?.dep_icao);
+  const destinationIata = cleanCode(flight?.arr_iata);
+  const destinationIcao = cleanCode(flight?.arr_icao);
 
   if (!(originIata || originIcao) || !(destinationIata || destinationIcao)) {
     return null;
   }
 
   let confidence = exact ? 95 : 82;
+  if (flight?.hex) confidence += 2;
+  if (flight?.reg_number) confidence += 2;
 
-  if (f?.hex) confidence += 2;
-  if (f?.reg_number) confidence += 2;
-  confidence = Math.min(confidence, 99);
-
-  return {
+  return withLegacyRouteShape({
     success: true,
     provider: "airlabs",
-    callsign: normalizeFlight(firstNonEmpty(f?.flight_icao, f?.flight_iata, requestedFlight)),
+    providerReason: exact
+      ? "AirLabs returned an exact callsign match."
+      : "AirLabs returned a usable route from its first matching result.",
+    callsign: normalizeFlight(
+      firstNonEmpty(flight?.flight_icao, flight?.flight_iata, requestedFlight)
+    ),
     origin: {
-      iata: originIata,
-      icao: originIcao,
-      name: firstNonEmpty(f?.dep_name, f?.dep_airport, null)
+      iata: originIata || null,
+      icao: originIcao || null,
+      name: firstNonEmpty(flight?.dep_name, flight?.dep_airport, null)
     },
     destination: {
-      iata: destinationIata,
-      icao: destinationIcao,
-      name: firstNonEmpty(f?.arr_name, f?.arr_airport, null)
+      iata: destinationIata || null,
+      icao: destinationIcao || null,
+      name: firstNonEmpty(flight?.arr_name, flight?.arr_airport, null)
     },
-    registration: firstNonEmpty(f?.reg_number, null),
-    hex: cleanCode(firstNonEmpty(f?.hex, "")) || null,
-    aircraft: firstNonEmpty(f?.aircraft_icao, f?.aircraft_model, null),
-    airline: firstNonEmpty(f?.airline_name, f?.airline_icao, f?.airline_iata, null),
-    status: firstNonEmpty(f?.status, null),
-    confidence,
+    registration: firstNonEmpty(flight?.reg_number, null),
+    hex: cleanCode(firstNonEmpty(flight?.hex, "")) || null,
+    aircraft: firstNonEmpty(flight?.aircraft_icao, flight?.aircraft_model, null),
+    airline: firstNonEmpty(
+      flight?.airline_name,
+      flight?.airline_icao,
+      flight?.airline_iata,
+      null
+    ),
+    status: firstNonEmpty(flight?.status, null),
+    confidence: Math.min(confidence, 99),
     cached: false
-  };
+  });
 }
 
-function parseAdsbDb(payload, requestedFlight) {
-  const route = payload?.response?.flightroute || payload?.flightroute || payload?.route || null;
+function parseAdsbDb(payload, requestedFlight, fallbackReason) {
+  const route =
+    payload?.response?.flightroute ||
+    payload?.flightroute ||
+    payload?.route ||
+    null;
+
   if (!route) return null;
 
   const origin = route?.origin || route?.departure || {};
   const destination = route?.destination || route?.arrival || {};
 
-  const originIata = cleanCode(firstNonEmpty(origin?.iata_code, origin?.iata, origin?.code_iata, ""));
-  const originIcao = cleanCode(firstNonEmpty(origin?.icao_code, origin?.icao, origin?.code_icao, ""));
-  const destinationIata = cleanCode(firstNonEmpty(destination?.iata_code, destination?.iata, destination?.code_iata, ""));
-  const destinationIcao = cleanCode(firstNonEmpty(destination?.icao_code, destination?.icao, destination?.code_icao, ""));
+  const originIata = cleanCode(
+    firstNonEmpty(origin?.iata_code, origin?.iata, origin?.code_iata, "")
+  );
+  const originIcao = cleanCode(
+    firstNonEmpty(origin?.icao_code, origin?.icao, origin?.code_icao, "")
+  );
+  const destinationIata = cleanCode(
+    firstNonEmpty(destination?.iata_code, destination?.iata, destination?.code_iata, "")
+  );
+  const destinationIcao = cleanCode(
+    firstNonEmpty(destination?.icao_code, destination?.icao, destination?.code_icao, "")
+  );
 
   if (!(originIata || originIcao) || !(destinationIata || destinationIcao)) {
     return null;
   }
 
-  return {
+  return withLegacyRouteShape({
     success: true,
     provider: "adsbdb",
+    providerReason: `ADSBDB fallback used because ${fallbackReason}`,
     callsign: requestedFlight,
     origin: {
-      iata: originIata,
-      icao: originIcao,
+      iata: originIata || null,
+      icao: originIcao || null,
       name: firstNonEmpty(origin?.name, origin?.municipality, null)
     },
     destination: {
-      iata: destinationIata,
-      icao: destinationIcao,
+      iata: destinationIata || null,
+      icao: destinationIcao || null,
       name: firstNonEmpty(destination?.name, destination?.municipality, null)
     },
     registration: null,
@@ -149,17 +185,17 @@ function parseAdsbDb(payload, requestedFlight) {
     status: null,
     confidence: 70,
     cached: false
-  };
+  });
 }
 
-async function fetchJson(url, timeoutMs = 8000) {
+async function fetchJson(url, timeoutMs = UPSTREAM_TIMEOUT_MS) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const response = await fetch(url, {
       signal: controller.signal,
-      headers: { "Accept": "application/json" }
+      headers: { Accept: "application/json" }
     });
 
     let payload = null;
@@ -170,20 +206,27 @@ async function fetchJson(url, timeoutMs = 8000) {
     }
 
     if (!response.ok) {
-      const error = new Error(`Upstream request failed with HTTP ${response.status}`);
+      const error = new Error(`HTTP ${response.status}`);
       error.status = response.status;
       error.payload = payload;
       throw error;
     }
 
     return payload;
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new Error(`timed out after ${timeoutMs} ms`);
+    }
+    throw error;
   } finally {
     clearTimeout(timeout);
   }
 }
 
 async function resolveFromAirLabs(env, flight) {
-  if (!env.AIRLABS_API_KEY) return null;
+  if (!env.AIRLABS_API_KEY) {
+    throw new Error("AIRLABS_API_KEY is not configured");
+  }
 
   const endpoint =
     "https://airlabs.co/api/v9/flight" +
@@ -194,40 +237,93 @@ async function resolveFromAirLabs(env, flight) {
   return parseAirLabs(payload, flight);
 }
 
-async function resolveFromAdsbDb(flight) {
-  const endpoint = `https://api.adsbdb.com/v0/callsign/${encodeURIComponent(flight)}`;
+async function resolveFromAdsbDb(flight, fallbackReason) {
+  const endpoint =
+    `https://api.adsbdb.com/v0/callsign/${encodeURIComponent(flight)}`;
+
   const payload = await fetchJson(endpoint);
-  return parseAdsbDb(payload, flight);
+  return parseAdsbDb(payload, flight, fallbackReason);
 }
 
 async function resolveRoute(env, flight) {
-  const errors = [];
+  let airLabsReason = "AirLabs returned no usable route.";
 
   try {
     const airLabs = await resolveFromAirLabs(env, flight);
-    if (airLabs) return airLabs;
-    errors.push("AirLabs returned no usable route");
+    if (airLabs) {
+      console.log(JSON.stringify({
+        event: "route_lookup",
+        callsign: flight,
+        provider: "airlabs",
+        outcome: "success"
+      }));
+      return airLabs;
+    }
   } catch (error) {
-    errors.push(`AirLabs: ${error.message}`);
+    airLabsReason = `AirLabs failed: ${error.message}.`;
+    console.warn(JSON.stringify({
+      event: "route_lookup",
+      callsign: flight,
+      provider: "airlabs",
+      outcome: "fallback",
+      reason: error.message
+    }));
   }
 
   try {
-    const adsbDb = await resolveFromAdsbDb(flight);
-    if (adsbDb) return adsbDb;
-    errors.push("ADSBDB returned no usable route");
+    const adsbDb = await resolveFromAdsbDb(flight, airLabsReason);
+    if (adsbDb) {
+      console.log(JSON.stringify({
+        event: "route_lookup",
+        callsign: flight,
+        provider: "adsbdb",
+        outcome: "success",
+        fallbackReason: airLabsReason
+      }));
+      return adsbDb;
+    }
   } catch (error) {
-    errors.push(`ADSBDB: ${error.message}`);
+    console.error(JSON.stringify({
+      event: "route_lookup",
+      callsign: flight,
+      provider: "adsbdb",
+      outcome: "failure",
+      reason: error.message,
+      fallbackReason: airLabsReason
+    }));
+
+    return {
+      success: false,
+      provider: null,
+      providerReason: `${airLabsReason} ADSBDB also failed: ${error.message}.`,
+      callsign: flight,
+      route: null,
+      confidence: 0,
+      cached: false,
+      error: "ROUTE UNAVAILABLE"
+    };
   }
 
   return {
     success: false,
     provider: null,
+    providerReason: `${airLabsReason} ADSBDB returned no usable route.`,
     callsign: flight,
     route: null,
     confidence: 0,
-    error: "ROUTE UNAVAILABLE",
-    details: errors
+    cached: false,
+    error: "ROUTE UNAVAILABLE"
   };
+}
+
+function flightFromRequestUrl(url) {
+  const queryFlight = normalizeFlight(url.searchParams.get("flight"));
+  if (queryFlight) return queryFlight;
+
+  // Compatibility with the existing FlightWall frontend:
+  // /v0/callsign/UAL678 or /callsign/UAL678
+  const match = url.pathname.match(/\/(?:v0\/)?callsign\/([A-Za-z0-9]{2,10})\/?$/);
+  return normalizeFlight(match?.[1]);
 }
 
 export default {
@@ -253,11 +349,14 @@ export default {
       return jsonResponse(request, {
         success: true,
         service: "flightwall-api",
-        airlabsConfigured: Boolean(env.AIRLABS_API_KEY)
+        version: "1.2.0",
+        airlabsConfigured: Boolean(env.AIRLABS_API_KEY),
+        successCacheSeconds: SUCCESS_TTL_SECONDS,
+        failureCacheSeconds: FAILURE_TTL_SECONDS
       });
     }
 
-    const flight = normalizeFlight(url.searchParams.get("flight"));
+    const flight = flightFromRequestUrl(url);
 
     if (!flight) {
       return jsonResponse(
@@ -281,11 +380,12 @@ export default {
 
     const cacheKey = new Request(cacheUrl.toString(), { method: "GET" });
     const cache = caches.default;
-
     const cachedResponse = await cache.match(cacheKey);
+
     if (cachedResponse) {
       const cachedBody = await cachedResponse.clone().json();
       cachedBody.cached = true;
+
       return jsonResponse(
         request,
         cachedBody,
@@ -295,7 +395,9 @@ export default {
     }
 
     const result = await resolveRoute(env, flight);
-    const ttl = result.success ? SUCCESS_TTL_SECONDS : FAILURE_TTL_SECONDS;
+    const ttl = result.success
+      ? SUCCESS_TTL_SECONDS
+      : FAILURE_TTL_SECONDS;
     const status = result.success ? 200 : 404;
 
     const response = jsonResponse(request, result, status, ttl);
