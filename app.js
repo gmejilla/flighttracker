@@ -2,7 +2,7 @@
   "use strict";
 
   const CONFIG = window.FLIGHTWALL_CONFIG || {};
-  const STORAGE_KEY = "flightwall-github-pages-v3.0.5";
+  const STORAGE_KEY = "flightwall-github-pages-v3.2.0";
 
   const demoFlights = [
     { id:"a11aa1", icao24:"a11aa1", callsign:"AAL1724", flightNumber:"AA 1724", airline:"AMERICAN", origin:"PHL", destination:"MCO", aircraft:"BOEING 737-800", country:"United States", latitude:39.91, longitude:-75.08, altitudeFt:12450, speedMph:338, heading:214, distanceMi:6.2, bearing:"SW", verticalRateFpm:1200, status:"CLIMBING", squawk:"1432", onGround:false },
@@ -28,7 +28,7 @@
   const elements = Object.fromEntries([
     "providerPill","aircraftCount","updatedAt","localClock","displayBezel","ledCanvas","displayMessage",
     "previousButton","pauseButton","nextButton","fullscreenButton","wakeLockButton","telemetryCard",
-    "selectedFlight","selectedIcao","selectedCountry","selectedSquawk","selectedPosition",
+    "selectedFlight","selectedIcao","selectedCountry","selectedSquawk","selectedPosition","dashboardPhase","dashboardAirline","dashboardOrigin","dashboardDestination","routeProgressFill","routeProgressPlane","routeProgressText","dashboardAltitude","dashboardSpeed","dashboardHeading","dashboardVertical","dashboardDistance","dashboardBearing","dashboardProgress","dashboardStatus","flightTimeline","originAirportCode","destinationAirportCode","originWeather","destinationWeather","dashboardAircraft","dashboardUpdated","dashboardProvider",
     "refreshButton","searchInput","favoritesOnlyButton","flightList","weatherRefreshButton","weatherTemperature","weatherCondition","weatherWind","weatherVisibility","weatherSunrise","weatherSunset","layoutSelect",
     "themeSelect","unitsSelect","rotationSelect","brightnessRange","brightnessOutput",
     "dotRange","dotOutput","autoBrightnessInput","zipCodeInput","zipCodeButton","zipCodeStatus","latitudeInput","longitudeInput","radiusInput","maximumInput",
@@ -1231,11 +1231,97 @@
   function updateTelemetry() {
     const flight = flights[currentIndex];
     if (!flight) return;
-    elements.selectedFlight.textContent = flight.flightNumber;
-    elements.selectedIcao.textContent = flight.icao24;
-    elements.selectedCountry.textContent = flight.country;
-    elements.selectedSquawk.textContent = flight.squawk;
-    elements.selectedPosition.textContent = `${flight.latitude.toFixed(3)}, ${flight.longitude.toFixed(3)}`;
+
+    const phase = inferFlightPhase(flight);
+    const unitsMetric = settings.units === "metric";
+    const altitude = unitsMetric
+      ? `${Math.round(Number(flight.altitudeFt || 0) * 0.3048).toLocaleString()} M`
+      : `${Math.round(Number(flight.altitudeFt || 0)).toLocaleString()} FT`;
+    const speed = unitsMetric
+      ? `${Math.round(Number(flight.speedMph || 0) * 1.60934)} KM/H`
+      : `${Math.round(Number(flight.speedMph || 0))} MPH`;
+    const vertical = unitsMetric
+      ? `${Math.round(Number(flight.verticalRateFpm || 0) * 0.00508)} M/S`
+      : `${Math.round(Number(flight.verticalRateFpm || 0)).toLocaleString()} FT/MIN`;
+    const distance = unitsMetric
+      ? `${(Number(flight.distanceMi || 0) * 1.60934).toFixed(1)} KM`
+      : `${Number(flight.distanceMi || 0).toFixed(1)} MI`;
+
+    const progress = estimatedRouteProgress(flight, phase);
+    const routeKnown = Boolean(flight.origin && flight.destination && flight.origin !== "---" && flight.destination !== "---");
+    const progressPct = routeKnown ? progress : 0;
+
+    elements.selectedFlight.textContent = flight.flightNumber || flight.callsign || "---";
+    elements.dashboardPhase.textContent = phase;
+    elements.dashboardAirline.textContent = [flight.airline, flight.aircraft].filter(Boolean).join(" · ") || "Aircraft details unavailable";
+    elements.dashboardOrigin.textContent = flight.origin || "---";
+    elements.dashboardDestination.textContent = flight.destination || "---";
+    elements.routeProgressFill.style.width = `${progressPct}%`;
+    elements.routeProgressPlane.style.left = `${progressPct}%`;
+    elements.routeProgressText.textContent = routeKnown ? `${progressPct}% estimated route progress` : "Route unavailable";
+    elements.dashboardAltitude.textContent = altitude;
+    elements.dashboardSpeed.textContent = speed;
+    elements.dashboardHeading.textContent = `${Math.round(Number(flight.heading || 0))}°`;
+    elements.dashboardVertical.textContent = vertical;
+    elements.dashboardDistance.textContent = distance;
+    elements.dashboardBearing.textContent = flight.bearing || "---";
+    elements.dashboardProgress.textContent = routeKnown ? `${progressPct}%` : "---";
+    elements.dashboardStatus.textContent = flight.status || phase;
+    elements.dashboardAircraft.textContent = flight.aircraft || "Unknown";
+    elements.selectedIcao.textContent = flight.icao24 || "---";
+    elements.selectedCountry.textContent = flight.country || "---";
+    elements.selectedSquawk.textContent = flight.squawk || "---";
+    elements.selectedPosition.textContent = Number.isFinite(flight.latitude) && Number.isFinite(flight.longitude)
+      ? `${flight.latitude.toFixed(3)}, ${flight.longitude.toFixed(3)}` : "---";
+    elements.dashboardUpdated.textContent = "Just now";
+    elements.dashboardProvider.textContent = lastProvider === "LIVE" ? (lastLiveSource || "WORKER") : lastProvider;
+    elements.originAirportCode.textContent = flight.origin || "---";
+    elements.destinationAirportCode.textContent = flight.destination || "---";
+
+    const routeWeather = selectedRouteWeather(flight);
+    elements.originWeather.textContent = formatDashboardWeather(routeWeather?.origin);
+    elements.destinationWeather.textContent = formatDashboardWeather(routeWeather?.destination);
+    renderFlightTimeline(phase);
+  }
+
+  function estimatedRouteProgress(flight, phase) {
+    if (flight.onGround && ["AT GATE", "ON GROUND"].includes(phase)) return 2;
+    const phaseProgress = {
+      "TAXIING": 5, "TAKEOFF": 9, "CLIMBING": 22, "EN ROUTE": 55,
+      "LEVEL": 58, "CRUISE": 60, "DESCENDING": 78, "APPROACHING": 88,
+      "FINAL APPROACH": 94, "LANDING": 98, "ARRIVED": 100
+    };
+    let value = phaseProgress[phase] ?? 50;
+    if (["EN ROUTE", "LEVEL", "CRUISE"].includes(phase)) {
+      const altitudeFactor = Math.min(1, Math.max(0, Number(flight.altitudeFt || 0) / 40000));
+      value = Math.round(48 + altitudeFactor * 17);
+    }
+    return Math.min(100, Math.max(0, value));
+  }
+
+  function formatDashboardWeather(record) {
+    if (!record) return "Weather unavailable";
+    const temp = Number(record.temperature ?? record.temperatureF ?? record.temp);
+    const wind = Number(record.windSpeed ?? record.windMph ?? record.wind);
+    const parts = [];
+    if (Number.isFinite(temp)) parts.push(`${Math.round(temp)}°`);
+    if (record.category) parts.push(record.category);
+    if (Number.isFinite(wind)) parts.push(`Wind ${Math.round(wind)} mph`);
+    return parts.join(" · ") || "Weather available";
+  }
+
+  function renderFlightTimeline(phase) {
+    const steps = ["GATE", "TAXI OUT", "TAKEOFF", "CLIMB", "CRUISE", "DESCENT", "FINAL", "LANDING", "TAXI IN"];
+    const phaseIndex = ({
+      "AT GATE":0, "ON GROUND":0, "TAXIING":1, "TAKEOFF":2, "CLIMBING":3,
+      "EN ROUTE":4, "LEVEL":4, "CRUISE":4, "DESCENDING":5,
+      "APPROACHING":6, "FINAL APPROACH":6, "LANDING":7, "ARRIVED":8
+    })[phase] ?? 4;
+    elements.flightTimeline.innerHTML = steps.map((step, index) => {
+      const state = index < phaseIndex ? "complete" : index === phaseIndex ? "active" : "pending";
+      const label = state === "complete" ? "Complete" : state === "active" ? "Current" : "Pending";
+      return `<li class="${state}"><span></span><b>${step}</b><em>${label}</em></li>`;
+    }).join("");
   }
 
   function selectFlight(index, restart = false) {

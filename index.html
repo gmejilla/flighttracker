@@ -17,7 +17,7 @@
         <div class="brand-badge" aria-hidden="true">FT</div>
         <div>
           <h1>FLIGHT TRACKER</h1>
-          <p>Web · v3.1.0</p>
+          <p>Web · v3.2.0</p>
         </div>
       </div>
 
@@ -47,17 +47,80 @@
           <button class="button" id="wakeLockButton" type="button">Keep screen awake</button>
         </div>
 
-        <section class="telemetry-card" id="telemetryCard">
-          <div>
-            <span class="eyebrow">Selected aircraft</span>
-            <strong id="selectedFlight">---</strong>
+        <section class="flight-dashboard" id="telemetryCard" aria-label="Selected flight details">
+          <article class="dashboard-hero">
+            <div>
+              <span class="eyebrow">Selected flight</span>
+              <div class="dashboard-flight-line">
+                <strong id="selectedFlight">---</strong>
+                <span class="phase-badge" id="dashboardPhase">WAITING</span>
+              </div>
+              <p id="dashboardAirline">No aircraft selected</p>
+            </div>
+            <div class="dashboard-route">
+              <div><b id="dashboardOrigin">---</b><span>Origin</span></div>
+              <div class="route-progress" aria-label="Route progress">
+                <div class="route-progress-track"><span id="routeProgressFill"></span><i id="routeProgressPlane">✈</i></div>
+                <small id="routeProgressText">Route unavailable</small>
+              </div>
+              <div><b id="dashboardDestination">---</b><span>Destination</span></div>
+            </div>
+          </article>
+
+          <div class="dashboard-grid">
+            <article class="detail-panel">
+              <h3>Live Telemetry</h3>
+              <dl class="metric-grid">
+                <div><dt>Altitude</dt><dd id="dashboardAltitude">---</dd></div>
+                <div><dt>Ground speed</dt><dd id="dashboardSpeed">---</dd></div>
+                <div><dt>Heading</dt><dd id="dashboardHeading">---</dd></div>
+                <div><dt>Vertical speed</dt><dd id="dashboardVertical">---</dd></div>
+              </dl>
+            </article>
+
+            <article class="detail-panel">
+              <h3>Route Overview</h3>
+              <dl class="metric-grid">
+                <div><dt>Distance nearby</dt><dd id="dashboardDistance">---</dd></div>
+                <div><dt>Bearing</dt><dd id="dashboardBearing">---</dd></div>
+                <div><dt>Estimated progress</dt><dd id="dashboardProgress">---</dd></div>
+                <div><dt>Status</dt><dd id="dashboardStatus">---</dd></div>
+              </dl>
+            </article>
+
+            <article class="detail-panel timeline-panel">
+              <h3>Flight Timeline</h3>
+              <ol class="flight-timeline" id="flightTimeline"></ol>
+            </article>
+
+            <article class="detail-panel">
+              <h3>Origin / Destination</h3>
+              <div class="airport-pair">
+                <section><b id="originAirportCode">---</b><span id="originWeather">Weather unavailable</span></section>
+                <span class="airport-arrow">→</span>
+                <section><b id="destinationAirportCode">---</b><span id="destinationWeather">Weather unavailable</span></section>
+              </div>
+            </article>
+
+            <article class="detail-panel">
+              <h3>Aircraft</h3>
+              <dl class="metric-grid compact-metrics">
+                <div><dt>Type</dt><dd id="dashboardAircraft">---</dd></div>
+                <div><dt>ICAO24</dt><dd id="selectedIcao">---</dd></div>
+                <div><dt>Country</dt><dd id="selectedCountry">---</dd></div>
+                <div><dt>Squawk</dt><dd id="selectedSquawk">---</dd></div>
+              </dl>
+            </article>
+
+            <article class="detail-panel">
+              <h3>Position</h3>
+              <dl class="metric-grid compact-metrics">
+                <div class="wide"><dt>Coordinates</dt><dd id="selectedPosition">---</dd></div>
+                <div><dt>Updated</dt><dd id="dashboardUpdated">---</dd></div>
+                <div><dt>Data source</dt><dd id="dashboardProvider">---</dd></div>
+              </dl>
+            </article>
           </div>
-          <dl>
-            <div><dt>ICAO24</dt><dd id="selectedIcao">---</dd></div>
-            <div><dt>Country</dt><dd id="selectedCountry">---</dd></div>
-            <div><dt>Squawk</dt><dd id="selectedSquawk">---</dd></div>
-            <div><dt>Position</dt><dd id="selectedPosition">---</dd></div>
-          </dl>
         </section>
       </section>
 

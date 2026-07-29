@@ -43,3 +43,14 @@
 - Retained immediate canvas fallback for airlines not included in the upstream catalog or when offline.
 - Updated service-worker cache version so GitHub Pages installs the corrected files.
 - Added trademark and upstream attribution notes.
+
+## v3.2.0 — Flight Details Dashboard
+
+- Replaced the compact selected-aircraft strip with a full flight dashboard.
+- Added route overview and animated estimated route progress.
+- Added live telemetry panels for altitude, speed, heading, and vertical rate.
+- Added an adaptive flight-phase timeline.
+- Added origin and destination weather summaries.
+- Added aircraft, position, data-source, and update information panels.
+- Added responsive layouts for desktop, tablet, and mobile.
+- Airport Operations Mode remains deferred.

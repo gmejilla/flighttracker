@@ -549,3 +549,50 @@ code {
 .field-note.success { color:#75e6a4; }
 .field-note.error { color:#ff8e8e; }
 @media (max-width:520px) { .zip-code-row { grid-template-columns:1fr; } }
+
+/* Flight details dashboard — v3.2.0 */
+.flight-dashboard { display:grid; gap:12px; }
+.dashboard-hero, .detail-panel {
+  border:1px solid var(--line); border-radius:var(--radius);
+  background:linear-gradient(180deg,rgba(255,255,255,.025),transparent),var(--panel);
+}
+.dashboard-hero { display:grid; grid-template-columns:minmax(190px,.7fr) minmax(360px,1.3fr); gap:24px; align-items:center; padding:18px; }
+.dashboard-flight-line { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.dashboard-flight-line strong { font-size:1.55rem; letter-spacing:.055em; }
+.dashboard-hero p { margin:6px 0 0; color:var(--muted); font-size:.82rem; }
+.phase-badge { padding:5px 9px; border:1px solid #315466; border-radius:999px; background:#0a202c; color:var(--accent); font-size:.65rem; font-weight:900; letter-spacing:.08em; }
+.dashboard-route { display:grid; grid-template-columns:auto minmax(180px,1fr) auto; align-items:center; gap:15px; }
+.dashboard-route > div:first-child, .dashboard-route > div:last-child { display:grid; text-align:center; }
+.dashboard-route b { font-size:1.35rem; }
+.dashboard-route span { color:var(--muted); font-size:.66rem; text-transform:uppercase; letter-spacing:.09em; }
+.route-progress { min-width:0; }
+.route-progress-track { position:relative; height:5px; border-radius:999px; background:#172833; }
+.route-progress-track span { display:block; width:0; height:100%; border-radius:inherit; background:linear-gradient(90deg,var(--accent-strong),var(--accent)); transition:width .45s ease; }
+.route-progress-track i { position:absolute; top:50%; left:0; transform:translate(-50%,-53%); color:var(--warning); font-style:normal; filter:drop-shadow(0 0 6px rgba(255,211,82,.45)); transition:left .45s ease; }
+.route-progress small { display:block; margin-top:9px; color:var(--muted); text-align:center; font-size:.69rem; }
+.dashboard-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.detail-panel { padding:15px; min-width:0; }
+.detail-panel h3 { margin:0 0 13px; color:#c9d6dd; font-size:.72rem; letter-spacing:.11em; text-transform:uppercase; }
+.metric-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin:0; }
+.metric-grid div { min-width:0; }
+.metric-grid .wide { grid-column:1/-1; }
+.metric-grid dt { color:var(--muted); font-size:.64rem; text-transform:uppercase; letter-spacing:.08em; }
+.metric-grid dd { margin:5px 0 0; overflow:hidden; text-overflow:ellipsis; color:#e6f1f6; font-size:.82rem; font-weight:750; white-space:nowrap; }
+.compact-metrics dd { font-size:.77rem; }
+.timeline-panel { grid-row:span 2; }
+.flight-timeline { display:grid; gap:8px; margin:0; padding:0; list-style:none; }
+.flight-timeline li { position:relative; display:grid; grid-template-columns:14px 1fr auto; align-items:center; gap:9px; color:#8297a7; font-size:.73rem; }
+.flight-timeline li::before { content:""; width:8px; height:8px; border:2px solid #425764; border-radius:50%; }
+.flight-timeline li.complete { color:#cdeada; }
+.flight-timeline li.complete::before { border-color:var(--success); background:var(--success); }
+.flight-timeline li.active { color:var(--warning); font-weight:800; }
+.flight-timeline li.active::before { border-color:var(--warning); background:var(--warning); box-shadow:0 0 10px rgba(255,211,82,.55); }
+.flight-timeline li em { color:inherit; font-style:normal; font-size:.64rem; letter-spacing:.06em; text-transform:uppercase; }
+.airport-pair { display:grid; grid-template-columns:1fr auto 1fr; gap:14px; align-items:center; }
+.airport-pair section { display:grid; gap:5px; padding:12px; border:1px solid #1d313d; border-radius:12px; background:#071019; }
+.airport-pair b { font-size:1.2rem; }
+.airport-pair span { color:var(--muted); font-size:.72rem; line-height:1.35; }
+.airport-arrow { color:var(--accent); font-size:1.25rem; }
+@media (max-width:1050px) { .dashboard-hero { grid-template-columns:1fr; } }
+@media (max-width:760px) { .dashboard-grid { grid-template-columns:1fr; } .timeline-panel { grid-row:auto; } .dashboard-route { grid-template-columns:auto 1fr auto; } }
+@media (max-width:520px) { .dashboard-hero { padding:15px; } .dashboard-route { gap:8px; } .dashboard-route b { font-size:1rem; } .metric-grid { gap:10px; } }
