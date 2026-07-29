@@ -1,11 +1,3 @@
-# v3.1.0 Release Notes
-
-- Reworked ADSBDB route enrichment with a confidence-based validation engine.
-- Route cache keys now include callsign, UTC date, ICAO24 address, and registration when available.
-- Added great-circle cross-track validation and stricter heading checks.
-- Routes with unknown airport coordinates, excessive detours, wrong headings, or low confidence now display as unavailable instead of showing potentially stale airport codes.
-- Updated application storage and service-worker cache versions.
-
 # v3.0.5 Release Notes
 
 - Added geometric validation for callsign-based origin and destination routes.

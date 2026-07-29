@@ -2,7 +2,7 @@
   "use strict";
 
   const CONFIG = window.FLIGHTWALL_CONFIG || {};
-  const STORAGE_KEY = "flightwall-github-pages-v3.1.0";
+  const STORAGE_KEY = "flightwall-github-pages-v3.0.5";
 
   const demoFlights = [
     { id:"a11aa1", icao24:"a11aa1", callsign:"AAL1724", flightNumber:"AA 1724", airline:"AMERICAN", origin:"PHL", destination:"MCO", aircraft:"BOEING 737-800", country:"United States", latitude:39.91, longitude:-75.08, altitudeFt:12450, speedMph:338, heading:214, distanceMi:6.2, bearing:"SW", verticalRateFpm:1200, status:"CLIMBING", squawk:"1432", onGround:false },
@@ -427,7 +427,6 @@
       icao24: String(raw.hex || raw.icao || "---").replace(/^~/, "").toUpperCase(),
       callsign,
       flightNumber: callsign,
-      registration: String(raw.r || raw.registration || "").trim().toUpperCase(),
       airline: "",
       origin: "---",
       destination: "---",
@@ -608,14 +607,8 @@
     };
   }
 
-  function routeCacheKey(callsign, flight = null) {
-    const normalizedCallsign = String(callsign || "").replace(/\s+/g, "").trim().toUpperCase();
-    if (!normalizedCallsign) return "";
-
-    const utcDate = new Date().toISOString().slice(0, 10);
-    const icao24 = String(flight?.icao24 || "").replace(/^~/, "").trim().toUpperCase();
-    const registration = String(flight?.registration || "").trim().toUpperCase();
-    return [normalizedCallsign, utcDate, icao24, registration].filter(Boolean).join("|");
+  function routeCacheKey(callsign) {
+    return String(callsign || "").replace(/\s+/g, "").trim().toUpperCase();
   }
 
   function readCachedRoute(callsign) {
@@ -640,10 +633,9 @@
     routeCache.set(key, { route, savedAt: Date.now() });
   }
 
-  async function fetchRouteForCallsign(callsign, flight = null) {
-    const lookupCallsign = String(callsign || "").replace(/\s+/g, "").trim().toUpperCase();
-    const key = routeCacheKey(lookupCallsign, flight);
-    if (!lookupCallsign || lookupCallsign.length < 3 || !key) return null;
+  async function fetchRouteForCallsign(callsign) {
+    const key = routeCacheKey(callsign);
+    if (!key || key.length < 3) return null;
 
     const cached = readCachedRoute(key);
     if (cached !== undefined) return cached;
@@ -659,7 +651,7 @@
     );
 
     try {
-      const response = await fetch(`${base}/${encodeURIComponent(lookupCallsign)}`, {
+      const response = await fetch(`${base}/${encodeURIComponent(key)}`, {
         headers: { Accept: "application/json" },
         signal: controller.signal,
         cache: "no-store"
@@ -689,74 +681,55 @@
     return Math.abs(((first - second + 540) % 360) - 180);
   }
 
-  function degreesToRadians(value) {
-    return Number(value) * Math.PI / 180;
-  }
+  function routeIsPlausibleForFlight(route, flight) {
+    if (!route || !flight) return false;
 
-  function crossTrackDistanceMiles(origin, destination, point) {
-    const earthRadiusMiles = 3958.7613;
-    const distance13 = haversineMiles(origin[0], origin[1], point[0], point[1]) / earthRadiusMiles;
-    const bearing13 = degreesToRadians(initialBearing(origin[0], origin[1], point[0], point[1]));
-    const bearing12 = degreesToRadians(initialBearing(origin[0], origin[1], destination[0], destination[1]));
-    const sine = Math.sin(distance13) * Math.sin(bearing13 - bearing12);
-    return Math.abs(Math.asin(Math.max(-1, Math.min(1, sine))) * earthRadiusMiles);
-  }
-
-  function routeConfidence(route, flight) {
     const originCoordinates = airportLocations[String(route.origin || "").toUpperCase()];
     const destinationCoordinates = airportLocations[String(route.destination || "").toUpperCase()];
     const aircraftLatitude = Number(flight.latitude);
     const aircraftLongitude = Number(flight.longitude);
 
+    // A route without coordinates cannot be geometrically verified. Keep it as
+    // best-effort data rather than rejecting every smaller regional airport.
     if (!originCoordinates || !destinationCoordinates ||
         !Number.isFinite(aircraftLatitude) || !Number.isFinite(aircraftLongitude)) {
-      return { accepted:false, score:0, reason:"unverifiable-airport" };
+      return true;
     }
 
     const aircraftCoordinates = [aircraftLatitude, aircraftLongitude];
-    const routeDistance = haversineMiles(originCoordinates[0], originCoordinates[1], destinationCoordinates[0], destinationCoordinates[1]);
-    const distanceFromOrigin = haversineMiles(originCoordinates[0], originCoordinates[1], aircraftCoordinates[0], aircraftCoordinates[1]);
-    const distanceToDestination = haversineMiles(aircraftCoordinates[0], aircraftCoordinates[1], destinationCoordinates[0], destinationCoordinates[1]);
+    const routeDistance = haversineMiles(
+      originCoordinates[0], originCoordinates[1],
+      destinationCoordinates[0], destinationCoordinates[1]
+    );
+    const distanceFromOrigin = haversineMiles(
+      originCoordinates[0], originCoordinates[1],
+      aircraftCoordinates[0], aircraftCoordinates[1]
+    );
+    const distanceToDestination = haversineMiles(
+      aircraftCoordinates[0], aircraftCoordinates[1],
+      destinationCoordinates[0], destinationCoordinates[1]
+    );
 
-    if (!Number.isFinite(routeDistance) || routeDistance < 25) {
-      return { accepted:false, score:0, reason:"invalid-route" };
-    }
+    if (!Number.isFinite(routeDistance) || routeDistance < 25) return false;
 
-    let score = 20;
+    // If the current position would require a major detour from the published
+    // route, the callsign lookup is probably from another day or schedule.
     const pathRatio = (distanceFromOrigin + distanceToDestination) / routeDistance;
-    const crossTrack = crossTrackDistanceMiles(originCoordinates, destinationCoordinates, aircraftCoordinates);
-
-    if (pathRatio <= 1.10) score += 30;
-    else if (pathRatio <= 1.18) score += 15;
-    else return { accepted:false, score, reason:"path-detour" };
-
-    const allowedCrossTrack = Math.max(20, Math.min(45, routeDistance * 0.06));
-    if (crossTrack <= allowedCrossTrack * 0.55) score += 25;
-    else if (crossTrack <= allowedCrossTrack) score += 10;
-    else return { accepted:false, score, reason:"off-route" };
-
-    if (!flight.onGround && distanceToDestination > 55 && distanceFromOrigin > 35) {
-      const destinationBearing = initialBearing(aircraftCoordinates[0], aircraftCoordinates[1], destinationCoordinates[0], destinationCoordinates[1]);
-      const difference = angleDifference(flight.heading, destinationBearing);
-      if (difference <= 35) score += 30;
-      else if (difference <= 55) score += 15;
-      else return { accepted:false, score, reason:"wrong-heading" };
-    } else {
-      score += 15;
+    if (pathRatio > 1.42 && Math.min(distanceFromOrigin, distanceToDestination) > 45) {
+      return false;
     }
 
-    // An aircraft should normally be no farther from both endpoints than a modest
-    // extension of the published route. This rejects recycled callsigns after a
-    // schedule or aircraft assignment change.
-    if (distanceFromOrigin > routeDistance * 1.20 && distanceToDestination > routeDistance * 1.20) {
-      return { accepted:false, score, reason:"outside-route-span" };
+    // Reject a route when an airborne aircraft is traveling strongly away from
+    // its alleged destination and is not already close to either endpoint.
+    if (!flight.onGround && distanceToDestination > 100 && distanceFromOrigin > 45) {
+      const destinationBearing = initialBearing(
+        aircraftCoordinates[0], aircraftCoordinates[1],
+        destinationCoordinates[0], destinationCoordinates[1]
+      );
+      if (angleDifference(flight.heading, destinationBearing) > 125) return false;
     }
 
-    return { accepted:score >= 80, score, reason:score >= 80 ? "verified" : "low-confidence" };
-  }
-
-  function routeIsPlausibleForFlight(route, flight) {
-    return routeConfidence(route, flight).accepted;
+    return true;
   }
 
   async function enrichFlightRoutes(records) {
@@ -764,7 +737,7 @@
 
     const generation = ++routeEnrichmentGeneration;
     const candidates = records.filter(flight =>
-      routeCacheKey(flight.callsign || flight.flightNumber, flight)
+      routeCacheKey(flight.callsign || flight.flightNumber)
     );
 
     let cursor = 0;
@@ -774,18 +747,14 @@
       while (cursor < candidates.length) {
         const index = cursor++;
         const flight = candidates[index];
-        const route = await fetchRouteForCallsign(flight.callsign || flight.flightNumber, flight);
+        const route = await fetchRouteForCallsign(flight.callsign || flight.flightNumber);
 
         if (generation !== routeEnrichmentGeneration) return;
 
-        const confidence = route ? routeConfidence(route, flight) : { accepted:false, score:0, reason:"no-route" };
-
-        if (route && confidence.accepted) {
+        if (route && routeIsPlausibleForFlight(route, flight)) {
           flight.origin = route.origin;
           flight.destination = route.destination;
           flight.routeAvailable = true;
-          flight.routeConfidence = confidence.score;
-          flight.routeValidation = confidence.reason;
           flight.routeVerified = Boolean(
             airportLocations[String(route.origin || "").toUpperCase()] &&
             airportLocations[String(route.destination || "").toUpperCase()]
@@ -803,8 +772,6 @@
           flight.destination = "---";
           flight.routeAvailable = false;
           flight.routeVerified = false;
-          flight.routeConfidence = confidence.score;
-          flight.routeValidation = confidence.reason;
         }
 
         updateUi();
