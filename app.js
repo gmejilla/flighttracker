@@ -726,11 +726,11 @@
     const pathRatio = (distanceFromOrigin + distanceToDestination) / routeDistance;
     const crossTrack = crossTrackDistanceMiles(originCoordinates, destinationCoordinates, aircraftCoordinates);
 
-    if (pathRatio <= 1.18) score += 25;
-    else if (pathRatio <= 1.30) score += 10;
+    if (pathRatio <= 1.10) score += 30;
+    else if (pathRatio <= 1.18) score += 15;
     else return { accepted:false, score, reason:"path-detour" };
 
-    const allowedCrossTrack = Math.max(35, Math.min(85, routeDistance * 0.10));
+    const allowedCrossTrack = Math.max(20, Math.min(45, routeDistance * 0.06));
     if (crossTrack <= allowedCrossTrack * 0.55) score += 25;
     else if (crossTrack <= allowedCrossTrack) score += 10;
     else return { accepted:false, score, reason:"off-route" };
@@ -738,8 +738,8 @@
     if (!flight.onGround && distanceToDestination > 55 && distanceFromOrigin > 35) {
       const destinationBearing = initialBearing(aircraftCoordinates[0], aircraftCoordinates[1], destinationCoordinates[0], destinationCoordinates[1]);
       const difference = angleDifference(flight.heading, destinationBearing);
-      if (difference <= 45) score += 25;
-      else if (difference <= 70) score += 10;
+      if (difference <= 35) score += 30;
+      else if (difference <= 55) score += 15;
       else return { accepted:false, score, reason:"wrong-heading" };
     } else {
       score += 15;
@@ -752,7 +752,7 @@
       return { accepted:false, score, reason:"outside-route-span" };
     }
 
-    return { accepted:score >= 65, score, reason:score >= 65 ? "verified" : "low-confidence" };
+    return { accepted:score >= 80, score, reason:score >= 80 ? "verified" : "low-confidence" };
   }
 
   function routeIsPlausibleForFlight(route, flight) {
